@@ -1,0 +1,23 @@
+# Wurrow .gitattributes — Git 属性统一
+
+* text=auto eol=lf
+
+*.php text diff=php
+*.cs text diff=csharp
+*.xaml text
+*.xml text
+*.json text
+*.md text
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.ico binary
+*.svg text
+
+/vendor/ export-ignore
+/.gitattributes export-ignore
+/.editorconfig export-ignore
+/.phpunit.cache export-ignore
+/tests/ export-ignore

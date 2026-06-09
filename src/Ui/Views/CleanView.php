@@ -39,14 +39,20 @@ final class CleanView
         $cleanAction = Action::custom(<<<'CS'
 cleanPhase = "running";
 cleanStatus = "Scanning system...";
+cleanHeroVisible = false;
+cleanRunningVisible = true;
+cleanDoneVisible = false;
 cleanReport = "";
+cleanProgress = 0;
 UpdateUI();
 await App.Stream.StartAsync("/api/clean/execute",
     (evt, data) => Dispatcher.Invoke(() => {
-        if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
+        if (evt == "progress" && data.ValueKind == System.Text.Json.JsonValueKind.Number)
+            cleanProgress = data.GetDouble();
+        else if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
         UpdateUI();
     }),
-    () => Dispatcher.Invoke(() => { cleanPhase = "done"; cleanStatus = "Complete"; UpdateUI(); }),
+    () => Dispatcher.Invoke(() => { cleanPhase = "done"; cleanStatus = "Complete"; cleanHeroVisible = false; cleanRunningVisible = false; cleanDoneVisible = true; cleanProgress = 100; UpdateUI(); }),
     (ex) => Dispatcher.Invoke(() => { cleanStatus = "Error: " + ex.Message; UpdateUI(); })
 );
 CS);
@@ -54,20 +60,23 @@ CS);
         $previewAction = Action::custom(<<<'CS'
 cleanPhase = "running";
 cleanStatus = "Previewing...";
+cleanHeroVisible = false;
+cleanRunningVisible = true;
+cleanDoneVisible = false;
 cleanReport = "";
+cleanProgress = 0;
 UpdateUI();
 await App.Stream.StartAsync("/api/clean/preview",
     (evt, data) => Dispatcher.Invoke(() => {
-        if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
+        if (evt == "progress" && data.ValueKind == System.Text.Json.JsonValueKind.Number)
+            cleanProgress = data.GetDouble();
+        else if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
         UpdateUI();
     }),
-    () => Dispatcher.Invoke(() => { cleanPhase = "idle"; cleanStatus = "Preview complete"; UpdateUI(); }),
+    () => Dispatcher.Invoke(() => { cleanPhase = "idle"; cleanStatus = "Preview complete"; cleanHeroVisible = true; cleanRunningVisible = false; cleanDoneVisible = false; cleanProgress = 100; UpdateUI(); }),
     (ex) => Dispatcher.Invoke(() => { cleanStatus = "Error: " + ex.Message; UpdateUI(); })
 );
 CS);
-
-        $cancelAction = Action::custom('await App.Api.PostAsync<object>("/api/clean/cancel");');
-        $backAction   = Action::custom('cleanPhase = "idle"; cleanReport = "Waiting to start...";');
 
         // ── 空闲态: ToolHero ──
         $hero = ToolHero::build($tool, [
@@ -77,7 +86,7 @@ CS);
 
         // ── 运行态: 状态栏 + 进度 ──
         $statusBar = TaskReport::statusBar($bindings['cleanStatus'], $tool->accent());
-        $progress  = (new Progress())
+        $progress  = (new Progress($bindings['cleanProgress']))
             ->style(Style::make()
                 ->height(3)
                 ->backgroundColor(Theme::HAIRLINE));
@@ -90,12 +99,22 @@ CS);
         $doneDetail = new Binding('cleanDoneDetail', '');
         $doneBanner = TaskReport::doneBanner('Cleaned', $doneDetail, $tool->accent());
 
-        // ── 组装: 空闲英雄 → 运行时报告 → 完成横幅 ──
+        // ── 命名容器 + visible() 绑定（消除对 patch-generated.php 的依赖）──
+        $heroSection = (new VStack($hero))
+            ->name('panel_cleanHero')
+            ->visible($bindings['cleanHeroVisible']);
+        $runningSection = (new VStack($statusBar, $progress))
+            ->name('panel_cleanRunning')
+            ->visible($bindings['cleanRunningVisible']);
+        $doneSection = (new VStack($doneBanner))
+            ->name('panel_cleanDone')
+            ->visible($bindings['cleanDoneVisible']);
+
+        // ── 组装 ──
         return new VStack(
-            $hero,
-            $statusBar,
-            $progress,
-            $doneBanner,
+            $heroSection,
+            $runningSection,
+            $doneSection,
             $report,
         );
     }

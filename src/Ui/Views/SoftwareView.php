@@ -35,8 +35,23 @@ final class SoftwareView
     {
         $tool = Tool::Apps;
 
+        // 共用的渲染方法调用（实现在 MainWindow.Bridge.cs）
+        $renderList = 'RenderSoftwareList(result.Value);';
+
         // ── 工具栏 ──
-        $searchInput = (new TextInput($bindings['softwareQuery'], 'Search apps...'))
+        $searchAction = Action::custom(<<<CS
+softwareLoading = true;
+UpdateUI();
+var q = ((TextBox)sender).Text;
+var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/software/search?q=" + Uri.EscapeDataString(q) + "&sort=size");
+if (result != null) {
+    {$renderList}
+}
+softwareLoading = false;
+UpdateUI();
+CS);
+
+        $searchInput = (new TextInput($bindings['softwareQuery'], 'Search apps...', $searchAction))
             ->style(Style::make()
                 ->backgroundColor(Theme::CARD_FILL)
                 ->foregroundColor(Theme::TEXT_PRIMARY)
@@ -44,19 +59,46 @@ final class SoftwareView
                 ->padding(8)
                 ->width(180));
 
-        $sortBySize = (new Button('size', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();'))) // TODO: add sort param
+        $sortBySize = (new Button('size', Action::custom(<<<CS
+softwareLoading = true;
+UpdateUI();
+var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/software/list?sort=size");
+if (result != null) {
+    {$renderList}
+}
+softwareLoading = false;
+UpdateUI();
+CS)))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor($tool->accent())
                 ->backgroundColor('transparent'));
 
-        $sortByName = (new Button('name', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();')))
+        $sortByName = (new Button('name', Action::custom(<<<CS
+softwareLoading = true;
+UpdateUI();
+var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/software/list?sort=name");
+if (result != null) {
+    {$renderList}
+}
+softwareLoading = false;
+UpdateUI();
+CS)))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)
                 ->backgroundColor('transparent'));
 
-        $sortBySource = (new Button('source', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();')))
+        $sortBySource = (new Button('source', Action::custom(<<<CS
+softwareLoading = true;
+UpdateUI();
+var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/software/list?sort=source");
+if (result != null) {
+    {$renderList}
+}
+softwareLoading = false;
+UpdateUI();
+CS)))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)
@@ -70,14 +112,15 @@ final class SoftwareView
             $sortBySource,
         );
 
-        // ── 软件列表占位（C# code-behind 动态填充 ItemsControl）──
-        $placeholder = (new Text('Installed apps will be loaded here from the PHP backend.'))
-            ->style(Theme::mono(Theme::TEXT_TERTIARY));
+        // ── 软件列表（命名容器，C# code-behind 动态填充）──
+        $listContainer = (new VStack(
+            (new Text('Click a sort button to load installed apps.'))
+                ->style(Theme::mono(Theme::TEXT_TERTIARY))
+        ))
+            ->name('panel_softwareList')
+            ->style(Style::make()->padding(10));
 
-        $listArea = new ScrollView(
-            (new VStack($placeholder))
-                ->style(Style::make()->padding(10))
-        );
+        $listArea = new ScrollView($listContainer);
 
         // ── 底栏 ──
         $selectionLabel = (new Text($bindings['selectedCount']))

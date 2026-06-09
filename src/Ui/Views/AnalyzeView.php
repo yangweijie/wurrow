@@ -80,18 +80,48 @@ final class AnalyzeView
 
     private static function buildMainArea(array $bindings, Tool $tool): VStack
     {
+        // 共用的分析 + 推送到 Treemap 代码片段
+        $analyzeAndPush = <<<'CS'
+var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/analyze?path=" + Uri.EscapeDataString(analyzePath));
+if (result != null) {
+    var entries = result.Value.GetProperty("entries");
+    analyzeSummary = "Found " + entries.GetArrayLength() + " items";
+    try {
+        webView.CoreWebView2.PostWebMessageAsJson(
+            JsonSerializer.Serialize(new { entries }));
+    } catch { }
+    UpdateUI();
+}
+CS;
+
+        // ── Browse 按钮 ──
+        $browseAction = Action::custom(<<<CS
+var dlg = new Microsoft.Win32.OpenFolderDialog();
+if (dlg.ShowDialog() == true) {
+    analyzePath = dlg.FolderName;
+    analyzeSummary = "Scanning...";
+    UpdateUI();
+    {$analyzeAndPush}
+}
+CS);
+
+        $browseButton = (new Button("\u{1F4C2}", $browseAction))
+            ->style(Style::make()
+                ->fontSize(11)
+                ->foregroundColor(Theme::TEXT_SECONDARY)
+                ->backgroundColor(Theme::CARD_FILL)
+                ->cornerRadius(4)
+                ->width(24)
+                ->height(24));
+
         // ── 工具栏 ──
-        $upButton = (new Button("\u{2191}", Action::custom(<<<'CS'
+        $upButton = (new Button("\u{2191}", Action::custom(<<<CS
 var parent = System.IO.Path.GetDirectoryName(analyzePath);
 if (!string.IsNullOrEmpty(parent)) {
     analyzePath = parent;
     analyzeSummary = "Scanning...";
     UpdateUI();
-    var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/analyze?path=" + Uri.EscapeDataString(analyzePath));
-    if (result != null) {
-        analyzeSummary = "Found " + result.Value.GetProperty("entries").GetArrayLength() + " items";
-        UpdateUI();
-    }
+    {$analyzeAndPush}
 }
 CS)))
             ->style(Style::make()
@@ -105,15 +135,11 @@ CS)))
         $pathText = (new Text($bindings['analyzePath']))
             ->style(Theme::mono(Theme::TEXT_PRIMARY));
 
-        $refreshButton = (new Button("\u{21BB}", Action::custom(<<<'CS'
+        $refreshButton = (new Button("\u{21BB}", Action::custom(<<<CS
 if (!string.IsNullOrEmpty(analyzePath)) {
     analyzeSummary = "Scanning...";
     UpdateUI();
-    var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/analyze?path=" + Uri.EscapeDataString(analyzePath));
-    if (result != null) {
-        analyzeSummary = "Found " + result.Value.GetProperty("entries").GetArrayLength() + " items";
-    }
-    UpdateUI();
+    {$analyzeAndPush}
 }
 CS)))
             ->style(Style::make()
@@ -125,6 +151,7 @@ CS)))
                 ->height(24));
 
         $toolbar = new HStack(
+            $browseButton,
             $upButton,
             $pathText,
             new Spacer(),

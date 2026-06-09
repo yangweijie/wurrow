@@ -36,14 +36,20 @@ final class OptimizeView
         $optimizeAction = Action::custom(<<<'CS'
 optimizePhase = "running";
 optimizeStatus = "Optimizing...";
+optimizeHeroVisible = false;
+optimizeRunningVisible = true;
+optimizeDoneVisible = false;
 optimizeReport = "";
+optimizeProgress = 0;
 UpdateUI();
 await App.Stream.StartAsync("/api/optimize/execute",
     (evt, data) => Dispatcher.Invoke(() => {
-        if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
+        if (evt == "progress" && data.ValueKind == System.Text.Json.JsonValueKind.Number)
+            optimizeProgress = data.GetDouble();
+        else if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
         UpdateUI();
     }),
-    () => Dispatcher.Invoke(() => { optimizePhase = "done"; optimizeStatus = "Complete"; UpdateUI(); }),
+    () => Dispatcher.Invoke(() => { optimizePhase = "done"; optimizeStatus = "Complete"; optimizeHeroVisible = false; optimizeRunningVisible = false; optimizeDoneVisible = true; optimizeProgress = 100; UpdateUI(); }),
     (ex) => Dispatcher.Invoke(() => { optimizeStatus = "Error: " + ex.Message; UpdateUI(); })
 );
 CS);
@@ -51,14 +57,20 @@ CS);
         $previewAction = Action::custom(<<<'CS'
 optimizePhase = "running";
 optimizeStatus = "Previewing...";
+optimizeHeroVisible = false;
+optimizeRunningVisible = true;
+optimizeDoneVisible = false;
 optimizeReport = "";
+optimizeProgress = 0;
 UpdateUI();
 await App.Stream.StartAsync("/api/optimize/preview",
     (evt, data) => Dispatcher.Invoke(() => {
-        if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
+        if (evt == "progress" && data.ValueKind == System.Text.Json.JsonValueKind.Number)
+            optimizeProgress = data.GetDouble();
+        else if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
         UpdateUI();
     }),
-    () => Dispatcher.Invoke(() => { optimizePhase = "idle"; optimizeStatus = "Preview complete"; UpdateUI(); }),
+    () => Dispatcher.Invoke(() => { optimizePhase = "idle"; optimizeStatus = "Preview complete"; optimizeHeroVisible = true; optimizeRunningVisible = false; optimizeDoneVisible = false; optimizeProgress = 100; UpdateUI(); }),
     (ex) => Dispatcher.Invoke(() => { optimizeStatus = "Error: " + ex.Message; UpdateUI(); })
 );
 CS);
@@ -71,7 +83,7 @@ CS);
 
         // ── 运行态 ──
         $statusBar = TaskReport::statusBar($bindings['optimizeStatus'], $tool->accent());
-        $progress  = (new Progress())
+        $progress  = (new Progress($bindings['optimizeProgress']))
             ->style(Style::make()
                 ->height(3)
                 ->backgroundColor(Theme::HAIRLINE));
@@ -84,11 +96,21 @@ CS);
         $doneDetail = new Binding('optimizeDoneDetail', '');
         $doneBanner = TaskReport::doneBanner('Optimized', $doneDetail, $tool->accent());
 
+        // ── 命名容器 + visible() 绑定 ──
+        $heroSection = (new VStack($hero))
+            ->name('panel_optimizeHero')
+            ->visible($bindings['optimizeHeroVisible']);
+        $runningSection = (new VStack($statusBar, $progress))
+            ->name('panel_optimizeRunning')
+            ->visible($bindings['optimizeRunningVisible']);
+        $doneSection = (new VStack($doneBanner))
+            ->name('panel_optimizeDone')
+            ->visible($bindings['optimizeDoneVisible']);
+
         return new VStack(
-            $hero,
-            $statusBar,
-            $progress,
-            $doneBanner,
+            $heroSection,
+            $runningSection,
+            $doneSection,
             $report,
         );
     }

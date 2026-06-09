@@ -15,9 +15,12 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use Yangweijie\Wurrow\Backend\Router;
 use Yangweijie\Wurrow\Backend\Services\CleanService;
+use Yangweijie\Wurrow\Backend\Services\PurgeService;
+use Yangweijie\Wurrow\Backend\Services\InstallerService;
 use Yangweijie\Wurrow\Backend\Services\OptimizeService;
 use Yangweijie\Wurrow\Backend\Services\AnalyzeService;
 use Yangweijie\Wurrow\Backend\Services\SoftwareService;
+use Yangweijie\Wurrow\Backend\Services\ConfigService;
 
 // ── CORS 预检请求 ──
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -43,23 +46,70 @@ $router->get('/api/health', function () {
 
 // ── Clean 端点 ───────────────────────────────────────────────────
 $cleanService = new CleanService();
+$configService = new ConfigService();
 
-$router->post('/api/clean/preview', function () use ($cleanService) {
+$router->post('/api/clean/preview', function () use ($cleanService, $configService) {
     Router::sseHeaders();
+    $targets = $configService->getCleanTargets();
     $cleanService->preview(function (string $event, mixed $data) {
         Router::sseSend($event, $data);
-    });
+    }, $targets);
 });
 
-$router->post('/api/clean/execute', function () use ($cleanService) {
+$router->post('/api/clean/execute', function () use ($cleanService, $configService) {
     Router::sseHeaders();
+    $targets = $configService->getCleanTargets();
     $cleanService->execute(function (string $event, mixed $data) {
         Router::sseSend($event, $data);
-    });
+    }, $targets);
 });
 
 $router->post('/api/clean/cancel', function () use ($cleanService) {
     $cleanService->cancel();
+    Router::json(['status' => 'cancelled']);
+});
+
+// ── Purge 端点 ──────────────────────────────────────────────────
+$purgeService = new PurgeService();
+
+$router->post('/api/purge/preview', function () use ($purgeService) {
+    Router::sseHeaders();
+    $purgeService->preview(function (string $event, mixed $data) {
+        Router::sseSend($event, $data);
+    });
+});
+
+$router->post('/api/purge/execute', function () use ($purgeService) {
+    Router::sseHeaders();
+    $purgeService->execute(function (string $event, mixed $data) {
+        Router::sseSend($event, $data);
+    });
+});
+
+$router->post('/api/purge/cancel', function () use ($purgeService) {
+    $purgeService->cancel();
+    Router::json(['status' => 'cancelled']);
+});
+
+// ── Installer 端点 ──────────────────────────────────────────────
+$installerService = new InstallerService();
+
+$router->post('/api/installer/preview', function () use ($installerService) {
+    Router::sseHeaders();
+    $installerService->preview(function (string $event, mixed $data) {
+        Router::sseSend($event, $data);
+    });
+});
+
+$router->post('/api/installer/execute', function () use ($installerService) {
+    Router::sseHeaders();
+    $installerService->execute(function (string $event, mixed $data) {
+        Router::sseSend($event, $data);
+    });
+});
+
+$router->post('/api/installer/cancel', function () use ($installerService) {
+    $installerService->cancel();
     Router::json(['status' => 'cancelled']);
 });
 
@@ -112,8 +162,9 @@ $router->delete('/api/analyze/trash', function () use ($analyzeService) {
 $softwareService = new SoftwareService();
 
 $router->get('/api/software/list', function () use ($softwareService) {
+    $sortBy = Router::queryParam('sort', 'size');
     try {
-        $apps = $softwareService->listInstalled();
+        $apps = $softwareService->listInstalled($sortBy);
         Router::json(['apps' => $apps, 'count' => count($apps)]);
     } catch (\Throwable $e) {
         Router::error($e->getMessage(), 500);
@@ -121,9 +172,10 @@ $router->get('/api/software/list', function () use ($softwareService) {
 });
 
 $router->get('/api/software/search', function () use ($softwareService) {
-    $query = Router::queryParam('q', '');
+    $query  = Router::queryParam('q', '');
+    $sortBy = Router::queryParam('sort', 'size');
     try {
-        $apps = $softwareService->search($query);
+        $apps = $softwareService->search($query, $sortBy);
         Router::json(['apps' => $apps, 'count' => count($apps)]);
     } catch (\Throwable $e) {
         Router::error($e->getMessage(), 500);
@@ -143,6 +195,18 @@ $router->post('/api/software/uninstall', function () use ($softwareService) {
     } catch (\Throwable $e) {
         Router::error($e->getMessage(), 500);
     }
+});
+
+// ── Settings 端点 ────────────────────────────────────────────────
+
+$router->get('/api/settings', function () use ($configService) {
+    Router::json($configService->load());
+});
+
+$router->post('/api/settings', function () use ($configService) {
+    $body = Router::readJsonBody();
+    $configService->save($body);
+    Router::json(['status' => 'saved', 'config' => $configService->load()]);
 });
 
 // ── 路由分发 ─────────────────────────────────────────────────────

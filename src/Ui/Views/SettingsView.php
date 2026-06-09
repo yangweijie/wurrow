@@ -15,6 +15,7 @@ use Perry\UI\Widget\Text;
 use Perry\UI\Widget\TextInput;
 use Perry\UI\Widget\Toggle;
 use Perry\UI\Widget\VStack;
+use Yangweijie\Wurrow\Ui\Components\PillButton;
 use Yangweijie\Wurrow\Ui\Theme;
 
 /**
@@ -69,6 +70,31 @@ final class SettingsView
             $recycleToggle,
         ]);
 
+        // ── 保存按钮 ──
+        $saveAction = Action::custom(<<<'CS'
+var config = new {
+    serverPort = int.TryParse(textbox_serverPort.Text, out var p) ? p : 7891,
+    cleanTemp = checkbox_cleanTemp.IsChecked == true,
+    cleanBrowser = checkbox_cleanBrowser.IsChecked == true,
+    cleanThumbs = checkbox_cleanThumbs.IsChecked == true,
+    cleanPrefetch = checkbox_cleanPrefetch.IsChecked == true,
+    cleanRecycle = checkbox_cleanRecycle.IsChecked == true,
+};
+var result = await App.Api.PostAsync<System.Text.Json.JsonElement>("/api/settings", config);
+if (result != null) {
+    settingsStatus = "Settings saved!";
+} else {
+    settingsStatus = "Failed to save settings.";
+}
+UpdateUI();
+CS);
+
+        $saveBtn = PillButton::accent('Save Settings', $saveAction, Theme::ACCENT_ANALYZE);
+        $statusText = (new Text($bindings['settingsStatus']))
+            ->style(Theme::mono(Theme::TEXT_TERTIARY));
+
+        $saveRow = new HStack($saveBtn, new Spacer(), $statusText);
+
         // ── 关于 ──
         $versionText = (new Text('Wurrow v0.1.0 — Windows system cleanup tool'))
             ->style(Theme::mono(Theme::TEXT_TERTIARY));
@@ -84,6 +110,7 @@ final class SettingsView
             (new VStack($title))->style(Style::make()->padding(18)),
             $serverSection,
             $cleanSection,
+            (new VStack($saveRow))->style(Style::make()->padding(18)),
             $aboutSection,
             new Spacer(),
         );

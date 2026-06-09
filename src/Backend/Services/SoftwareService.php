@@ -32,12 +32,13 @@ final class SoftwareService
     /**
      * 列出所有已安装软件。
      *
+     * @param string $sortBy 排序方式: size|name|source
      * @return array 软件列表
      */
-    public function listInstalled(): array
+    public function listInstalled(string $sortBy = 'size'): array
     {
         if (!PowerShellRunner::isWindows()) {
-            return $this->mockSoftwareList();
+            return $this->sortApps($this->mockSoftwareList(), $sortBy);
         }
 
         $pathsStr = implode('", "', self::REG_PATHS);
@@ -49,20 +50,21 @@ final class SoftwareService
             '  Select-Object DisplayName, DisplayVersion, Publisher, InstallLocation, ' .
             '    EstimatedSize, UninstallString, InstallDate ' .
             '}; ' .
-            '$apps | Sort-Object -Property EstimatedSize -Descending | ConvertTo-Json -Depth 2',
+            '$apps | ConvertTo-Json -Depth 2',
             $pathsStr
         );
 
         $result = $this->ps->runSync($script);
-        return $this->parseSoftwareJson(implode("\n", $result['output']));
+        $apps = $this->parseSoftwareJson(implode("\n", $result['output']));
+        return $this->sortApps($apps, $sortBy);
     }
 
     /**
      * 搜索已安装软件。
      */
-    public function search(string $query): array
+    public function search(string $query, string $sortBy = 'size'): array
     {
-        $apps = $this->listInstalled();
+        $apps = $this->listInstalled($sortBy);
         if (empty($query)) {
             return $apps;
         }
@@ -155,9 +157,32 @@ PS;
             ];
         }
 
-        // 按大小降序排列
-        usort($apps, fn($a, $b) => $b['sizeBytes'] <=> $a['sizeBytes']);
         return $apps;
+    }
+
+    /**
+     * 按指定方式排序软件列表。
+     *
+     * @param array  $apps   软件列表
+     * @param string $sortBy 排序方式: size|name|source
+     * @return array 排序后的列表
+     */
+    private function sortApps(array $apps, string $sortBy): array
+    {
+        return match ($sortBy) {
+            'name'   => (function () use ($apps) {
+                usort($apps, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+                return $apps;
+            })(),
+            'source' => (function () use ($apps) {
+                usort($apps, fn($a, $b) => strcasecmp($a['source'], $b['source']) ?: strcasecmp($a['name'], $b['name']));
+                return $apps;
+            })(),
+            default  => (function () use ($apps) {
+                usort($apps, fn($a, $b) => $b['sizeBytes'] <=> $a['sizeBytes']);
+                return $apps;
+            })(),
+        };
     }
 
     /**

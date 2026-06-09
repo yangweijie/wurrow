@@ -62,16 +62,20 @@ final class CleanService
     /**
      * 预览模式（dry-run）— 扫描可清理的文件并报告大小。
      *
-     * @param callable $emit SSE 发送回调: function(string $event, mixed $data)
+     * @param callable $emit    SSE 发送回调: function(string $event, mixed $data)
+     * @param array<string, bool> $targets 清理目标开关: ['temp' => true, 'browser' => true, ...]
      */
-    public function preview(callable $emit): void
+    public function preview(callable $emit, array $targets = []): void
     {
         $this->cancelled = false;
         $totalSize = 0;
         $totalItems = 0;
         $categories = 0;
+        $activeTargets = $this->filterTargets($targets);
+        $totalCategories = count($activeTargets);
+        $processed = 0;
 
-        foreach (self::TARGETS as $category => $config) {
+        foreach ($activeTargets as $category => $config) {
             if ($this->cancelled) break;
 
             $emit('line', ['marker' => 'group', 'text' => $category]);
@@ -100,6 +104,9 @@ final class CleanService
                     ]);
                 }
             }
+
+            $processed++;
+            $emit('progress', (int) ($processed / max(1, $totalCategories) * 100));
         }
 
         $emit('summary', [
@@ -113,16 +120,20 @@ final class CleanService
     /**
      * 执行清理 — 实际删除文件。
      *
-     * @param callable $emit SSE 发送回调
+     * @param callable $emit    SSE 发送回调
+     * @param array<string, bool> $targets 清理目标开关
      */
-    public function execute(callable $emit): void
+    public function execute(callable $emit, array $targets = []): void
     {
         $this->cancelled = false;
         $totalSize = 0;
         $totalItems = 0;
         $categories = 0;
+        $activeTargets = $this->filterTargets($targets);
+        $totalCategories = count($activeTargets);
+        $processed = 0;
 
-        foreach (self::TARGETS as $category => $config) {
+        foreach ($activeTargets as $category => $config) {
             if ($this->cancelled) break;
 
             $emit('line', ['marker' => 'group', 'text' => $category]);
@@ -148,6 +159,9 @@ final class CleanService
                     $emit('line', ['marker' => 'ok', 'text' => 'Already clean']);
                 }
             }
+
+            $processed++;
+            $emit('progress', (int) ($processed / max(1, $totalCategories) * 100));
         }
 
         $emit('summary', [
@@ -243,5 +257,37 @@ PS;
         if ($bytes < 1_048_576) return number_format($bytes / 1024, 1) . ' KB';
         if ($bytes < 1_073_741_824) return number_format($bytes / 1_048_576, 1) . ' MB';
         return number_format($bytes / 1_073_741_824, 2) . ' GB';
+    }
+
+    /**
+     * 根据用户设置过滤清理目标。
+     *
+     * @param array<string, bool> $targets
+     * @return array<string, array>
+     */
+    private function filterTargets(array $targets): array
+    {
+        // 无过滤时返回全部目标（向后兼容）
+        if (empty($targets)) {
+            return self::TARGETS;
+        }
+
+        // 映射设置键到 TARGETS 分类
+        $mapping = [
+            'temp'    => 'Windows Temp',
+            'browser' => 'Browser Caches',
+            'thumbs'  => 'Thumbnail Cache',
+            'prefetch' => 'Prefetch Files',
+            'recycle' => 'Windows Update Cache',
+        ];
+
+        $filtered = [];
+        foreach ($mapping as $key => $category) {
+            if (!empty($targets[$key]) && isset(self::TARGETS[$category])) {
+                $filtered[$category] = self::TARGETS[$category];
+            }
+        }
+
+        return $filtered ?: self::TARGETS;
     }
 }

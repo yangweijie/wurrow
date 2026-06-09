@@ -14,6 +14,8 @@ use Perry\UI\Widget\Text;
 use Perry\UI\Widget\VStack;
 
 use Yangweijie\Wurrow\Ui\Views\CleanView;
+use Yangweijie\Wurrow\Ui\Views\PurgeView;
+use Yangweijie\Wurrow\Ui\Views\InstallerView;
 use Yangweijie\Wurrow\Ui\Views\OptimizeView;
 use Yangweijie\Wurrow\Ui\Views\AnalyzeView;
 use Yangweijie\Wurrow\Ui\Views\SoftwareView;
@@ -50,8 +52,10 @@ final class WurrowApp
             'activeTab'       => new Binding('activeTab', 0),
             'cleanPhase'      => new Binding('cleanPhase', 'idle'),
             'cleanStatus'     => new Binding('cleanStatus', 'Ready to scan your system'),
+            'cleanProgress'   => new Binding('cleanProgress', 0.0),
             'optimizePhase'   => new Binding('optimizePhase', 'idle'),
             'optimizeStatus'  => new Binding('optimizeStatus', 'Ready to optimize'),
+            'optimizeProgress' => new Binding('optimizeProgress', 0.0),
             'analyzePath'     => new Binding('analyzePath', ''),
             'analyzeLoading'  => new Binding('analyzeLoading', false),
             'analyzeSummary'  => new Binding('analyzeSummary', 'Select a folder to analyze'),
@@ -59,6 +63,26 @@ final class WurrowApp
             'softwareLoading' => new Binding('softwareLoading', false),
             'selectedCount'   => new Binding('selectedCount', 0),
             'serverPort'      => new Binding('serverPort', 7891),
+            'settingsStatus'   => new Binding('settingsStatus', ''),
+            'purgePhase'       => new Binding('purgePhase', 'idle'),
+            'purgeStatus'      => new Binding('purgeStatus', 'Ready to purge dev files'),
+            'purgeProgress'    => new Binding('purgeProgress', 0.0),
+            'installerPhase'   => new Binding('installerPhase', 'idle'),
+            'installerStatus'  => new Binding('installerStatus', 'Ready to scan installers'),
+            'installerProgress' => new Binding('installerProgress', 0.0),
+            // ── 可见性控制（visible() 绑定） ──
+            'cleanHeroVisible'    => new Binding('cleanHeroVisible', true),
+            'cleanRunningVisible' => new Binding('cleanRunningVisible', false),
+            'cleanDoneVisible'    => new Binding('cleanDoneVisible', false),
+            'purgeHeroVisible'    => new Binding('purgeHeroVisible', true),
+            'purgeRunningVisible' => new Binding('purgeRunningVisible', false),
+            'purgeDoneVisible'    => new Binding('purgeDoneVisible', false),
+            'installerHeroVisible'    => new Binding('installerHeroVisible', true),
+            'installerRunningVisible' => new Binding('installerRunningVisible', false),
+            'installerDoneVisible'    => new Binding('installerDoneVisible', false),
+            'optimizeHeroVisible'    => new Binding('optimizeHeroVisible', true),
+            'optimizeRunningVisible' => new Binding('optimizeRunningVisible', false),
+            'optimizeDoneVisible'    => new Binding('optimizeDoneVisible', false),
         ];
     }
 
@@ -105,25 +129,32 @@ final class WurrowApp
     private function buildRoot(): AppContainer
     {
         // 构建各工具视图
-        $cleanTab    = CleanView::build($this->bindings);
-        $optimizeTab = OptimizeView::build($this->bindings);
-        $analyzeTab  = AnalyzeView::build($this->bindings);
-        $softwareTab = SoftwareView::build($this->bindings);
-        $settingsTab = SettingsView::build($this->bindings);
+        // 按 Tool::navOrder() 顺序排列: Clean, Purge, Installer, Optimize, Apps, Analyze, Settings
+        $cleanTab     = CleanView::build($this->bindings);
+        $purgeTab     = PurgeView::build($this->bindings);
+        $installerTab = InstallerView::build($this->bindings);
+        $optimizeTab  = OptimizeView::build($this->bindings);
+        $softwareTab  = SoftwareView::build($this->bindings);
+        $analyzeTab   = AnalyzeView::build($this->bindings);
+        $settingsTab  = SettingsView::build($this->bindings);
 
         // 使用 TabView 组装所有工具标签页
         $tabView = (new TabView(
             $cleanTab,
+            $purgeTab,
+            $installerTab,
             $optimizeTab,
-            $analyzeTab,
             $softwareTab,
+            $analyzeTab,
             $settingsTab,
         ))
             ->label(0, 'Clean')
-            ->label(1, 'Optimize')
-            ->label(2, 'Analyze')
-            ->label(3, 'Software')
-            ->label(4, 'Settings')
+            ->label(1, 'Purge')
+            ->label(2, 'Installers')
+            ->label(3, 'Optimize')
+            ->label(4, 'Software')
+            ->label(5, 'Analyze')
+            ->label(6, 'Settings')
             ->withSelected($this->bindings['activeTab']);
 
         // AppContainer 设置窗口尺寸和全局绑定

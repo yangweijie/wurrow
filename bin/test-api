@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# Wurrow API 集成测试
+# 启动 PHP 服务器，对每个端点执行 HTTP 请求并验证响应。
+#
+# 用法: ./bin/test-api [port]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PORT="${1:-7899}"
+PASS=0
+FAIL=0
+SERVER_PID=""
+
+cd "$PROJECT_ROOT"
+
+# 颜色
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+assert_eq() {
+    local label="$1" expected="$2" actual="$3"
+    if [[ "$actual" == *"$expected"* ]]; then
+        echo -e "  ${GREEN}✓${NC} $label"
+        PASS=$((PASS + 1))
+    else
+        echo -e "  ${RED}✗${NC} $label"
+        echo "    expected: $expected"
+        echo "    actual:   $actual"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+cleanup() {
+    if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        kill "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+echo -e "${CYAN}Wurrow API Integration Tests${NC}"
+echo "============================"
+echo ""
+
+# ── Start Server ──
+echo "Starting PHP server on port $PORT..."
+php -S "localhost:$PORT" src/Backend/Server.php &>/dev/null &
+SERVER_PID=$!
+sleep 1
+
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo -e "${RED}Failed to start PHP server${NC}"
+    exit 1
+fi
+echo -e "  ${GREEN}Server started (PID: $SERVER_PID)${NC}"
+echo ""
+
+BASE="http://localhost:$PORT"
+
+# ── 1. Health Check ──
+echo "1. Health Check"
+HEALTH=$(curl -s "$BASE/api/health")
+assert_eq "Status is ok" '"status": "ok"' "$HEALTH"
+assert_eq "Version present" '"version"' "$HEALTH"
+assert_eq "PHP version present" '"php"' "$HEALTH"
+echo ""
+
+# ── 2. Settings ──
+echo "2. Settings API"
+SETTINGS=$(curl -s "$BASE/api/settings")
+assert_eq "Loads serverPort" '"serverPort": 7891' "$SETTINGS"
+assert_eq "Loads cleanTemp" '"cleanTemp": true' "$SETTINGS"
+echo ""
+
+SAVE=$(curl -s -X POST "$BASE/api/settings" \
+    -H "Content-Type: application/json" \
+    -d '{"serverPort": 8888, "cleanTemp": false}')
+assert_eq "Save returns status" '"status": "saved"' "$SAVE"
+assert_eq "Save persists serverPort" '"serverPort": 8888' "$SAVE"
+# Reset
+curl -s -X POST "$BASE/api/settings" \
+    -H "Content-Type: application/json" \
+    -d '{"serverPort": 7891, "cleanTemp": true}' > /dev/null
+echo ""
+
+# ── 3. Clean Preview (SSE) ──
+echo "3. Clean Preview (SSE)"
+CLEAN_SSE=$(curl -s -N -X POST "$BASE/api/clean/preview" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"preview_complete"' "$(echo "$CLEAN_SSE" | grep -o '"status":"[^"]*"' | head -1)"
+assert_eq "Emits summary" 'summary' "$(echo "$CLEAN_SSE" | grep 'event: summary' || echo '')"
+echo ""
+
+# ── 4. Clean Execute (SSE) ──
+echo "4. Clean Execute (SSE)"
+CLEAN_EXEC=$(curl -s -N -X POST "$BASE/api/clean/execute" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"clean_complete"' "$(echo "$CLEAN_EXEC" | grep -o '"status":"[^"]*"' | head -1)"
+echo ""
+
+# ── 5. Clean Cancel ──
+echo "5. Clean Cancel"
+CANCEL=$(curl -s -X POST "$BASE/api/clean/cancel")
+assert_eq "Cancel returns ok" '"status": "cancelled"' "$CANCEL"
+echo ""
+
+# ── 6. Purge Preview (SSE) ──
+echo "6. Purge Preview (SSE)"
+PURGE_SSE=$(curl -s -N -X POST "$BASE/api/purge/preview" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"preview_complete"' "$(echo "$PURGE_SSE" | grep -o '"status":"[^"]*"' | head -1)"
+assert_eq "Emits Node Modules group" 'Node Modules' "$(echo "$PURGE_SSE" | grep 'Node Modules' || echo '')"
+echo ""
+
+# ── 7. Purge Execute (SSE) ──
+echo "7. Purge Execute (SSE)"
+PURGE_EXEC=$(curl -s -N -X POST "$BASE/api/purge/execute" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"purge_complete"' "$(echo "$PURGE_EXEC" | grep -o '"status":"[^"]*"' | head -1)"
+echo ""
+
+# ── 8. Installer Preview (SSE) ──
+echo "8. Installer Preview (SSE)"
+INST_SSE=$(curl -s -N -X POST "$BASE/api/installer/preview" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"preview_complete"' "$(echo "$INST_SSE" | grep -o '"status":"[^"]*"' | head -1)"
+assert_eq "Emits Downloads group" 'Downloads' "$(echo "$INST_SSE" | grep 'Downloads' || echo '')"
+echo ""
+
+# ── 9. Installer Execute (SSE) ──
+echo "9. Installer Execute (SSE)"
+INST_EXEC=$(curl -s -N -X POST "$BASE/api/installer/execute" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"installer_clean_complete"' "$(echo "$INST_EXEC" | grep -o '"status":"[^"]*"' | head -1)"
+echo ""
+
+# ── 10. Optimize Preview (SSE) ──
+echo "10. Optimize Preview (SSE)"
+OPT_SSE=$(curl -s -N -X POST "$BASE/api/optimize/preview" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"preview_complete"' "$(echo "$OPT_SSE" | grep -o '"status":"[^"]*"' | head -1)"
+echo ""
+
+# ── 11. Optimize Execute (SSE) ──
+echo "11. Optimize Execute (SSE)"
+OPT_EXEC=$(curl -s -N -X POST "$BASE/api/optimize/execute" 2>/dev/null)
+assert_eq "Emits done with status" '"status":"optimize_complete"' "$(echo "$OPT_EXEC" | grep -o '"status":"[^"]*"' | head -1)"
+echo ""
+
+# ── 12. Analyze ──
+echo "12. Analyze"
+ANALYZE=$(curl -s "$BASE/api/analyze?path=/tmp")
+assert_eq "Returns path" '"path": "/tmp"' "$ANALYZE"
+assert_eq "Returns entries" '"entries"' "$ANALYZE"
+assert_eq "Returns total_size" '"total_size"' "$ANALYZE"
+echo ""
+
+# ── 13. Software List ──
+echo "13. Software List"
+SOFTWARE=$(curl -s "$BASE/api/software/list?sort=name")
+assert_eq "Returns apps" '"apps"' "$SOFTWARE"
+assert_eq "Returns count" '"count"' "$SOFTWARE"
+echo ""
+
+# ── 14. Software Search ──
+echo "14. Software Search"
+SEARCH=$(curl -s "$BASE/api/software/search?q=test&sort=size")
+assert_eq "Returns apps" '"apps"' "$SEARCH"
+echo ""
+
+# ── 15. 404 ──
+echo "15. 404 Not Found"
+NOT_FOUND=$(curl -s "$BASE/api/nonexistent")
+assert_eq "Returns error" '"error"' "$NOT_FOUND"
+echo ""
+
+# ── Summary ──
+echo "============================"
+echo -e "${CYAN}Results:${NC} ${GREEN}$PASS passed${NC}, ${RED}$FAIL failed${NC}"
+echo ""
+
+if [[ $FAIL -gt 0 ]]; then
+    exit 1
+fi

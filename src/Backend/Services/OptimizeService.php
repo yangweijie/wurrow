@@ -82,6 +82,9 @@ final class OptimizeService
     {
         $success = 0;
         $failed  = 0;
+        $operations = array_filter(self::OPERATIONS, fn($op) => empty($op['readonly']));
+        $total = count($operations);
+        $processed = 0;
 
         foreach (self::OPERATIONS as $name => $op) {
             if (isset($op['readonly']) && $op['readonly']) {
@@ -92,6 +95,8 @@ final class OptimizeService
 
             if ($op['admin'] && !PowerShellRunner::isWindows()) {
                 $emit('line', ['marker' => 'review', 'text' => 'Skipped (requires admin on Windows)']);
+                $processed++;
+                $emit('progress', (int) ($processed / max(1, $total) * 100));
                 continue;
             }
 
@@ -111,6 +116,9 @@ final class OptimizeService
                 ]);
                 $failed++;
             }
+
+            $processed++;
+            $emit('progress', (int) ($processed / max(1, $total) * 100));
         }
 
         $emit('summary', [
