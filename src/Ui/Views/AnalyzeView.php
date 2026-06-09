@@ -81,7 +81,19 @@ final class AnalyzeView
     private static function buildMainArea(array $bindings, Tool $tool): VStack
     {
         // ── 工具栏 ──
-        $upButton = (new Button("\u{2191}", Action::custom('// TODO: Go up one level')))
+        $upButton = (new Button("\u{2191}", Action::custom(<<<'CS'
+var parent = System.IO.Path.GetDirectoryName(analyzePath);
+if (!string.IsNullOrEmpty(parent)) {
+    analyzePath = parent;
+    analyzeSummary = "Scanning...";
+    UpdateUI();
+    var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/analyze?path=" + Uri.EscapeDataString(analyzePath));
+    if (result != null) {
+        analyzeSummary = "Found " + result.Value.GetProperty("entries").GetArrayLength() + " items";
+        UpdateUI();
+    }
+}
+CS)))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)
@@ -93,7 +105,17 @@ final class AnalyzeView
         $pathText = (new Text($bindings['analyzePath']))
             ->style(Theme::mono(Theme::TEXT_PRIMARY));
 
-        $refreshButton = (new Button("\u{21BB}", Action::custom('// TODO: Refresh scan')))
+        $refreshButton = (new Button("\u{21BB}", Action::custom(<<<'CS'
+if (!string.IsNullOrEmpty(analyzePath)) {
+    analyzeSummary = "Scanning...";
+    UpdateUI();
+    var result = await App.Api.GetAsync<System.Text.Json.JsonElement>("/api/analyze?path=" + Uri.EscapeDataString(analyzePath));
+    if (result != null) {
+        analyzeSummary = "Found " + result.Value.GetProperty("entries").GetArrayLength() + " items";
+    }
+    UpdateUI();
+}
+CS)))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)

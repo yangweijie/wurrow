@@ -33,8 +33,35 @@ final class OptimizeView
         $tool = Tool::Optimize;
 
         // ── 按钮动作 ──
-        $previewAction  = Action::custom('// TODO: Call POST /api/optimize/preview via StreamingClient');
-        $optimizeAction = Action::custom('// TODO: Call POST /api/optimize/execute via StreamingClient');
+        $optimizeAction = Action::custom(<<<'CS'
+optimizePhase = "running";
+optimizeStatus = "Optimizing...";
+optimizeReport = "";
+UpdateUI();
+await App.Stream.StartAsync("/api/optimize/execute",
+    (evt, data) => Dispatcher.Invoke(() => {
+        if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
+        UpdateUI();
+    }),
+    () => Dispatcher.Invoke(() => { optimizePhase = "done"; optimizeStatus = "Complete"; UpdateUI(); }),
+    (ex) => Dispatcher.Invoke(() => { optimizeStatus = "Error: " + ex.Message; UpdateUI(); })
+);
+CS);
+
+        $previewAction = Action::custom(<<<'CS'
+optimizePhase = "running";
+optimizeStatus = "Previewing...";
+optimizeReport = "";
+UpdateUI();
+await App.Stream.StartAsync("/api/optimize/preview",
+    (evt, data) => Dispatcher.Invoke(() => {
+        if (data.TryGetProperty("text", out var t)) optimizeReport += t.GetString() + "\n";
+        UpdateUI();
+    }),
+    () => Dispatcher.Invoke(() => { optimizePhase = "idle"; optimizeStatus = "Preview complete"; UpdateUI(); }),
+    (ex) => Dispatcher.Invoke(() => { optimizeStatus = "Error: " + ex.Message; UpdateUI(); })
+);
+CS);
 
         // ── 空闲态: ToolHero ──
         $hero = ToolHero::build($tool, [

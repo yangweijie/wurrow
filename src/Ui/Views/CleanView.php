@@ -35,11 +35,39 @@ final class CleanView
     {
         $tool = Tool::Clean;
 
-        // ── 按钮动作（C# code-behind 将扩展这些处理器调用 PHP API）──
-        $previewAction = Action::custom('// TODO: Call POST /api/clean/preview via StreamingClient');
-        $cleanAction   = Action::custom('// TODO: Call POST /api/clean/execute via StreamingClient');
-        $cancelAction  = Action::custom('// TODO: Call POST /api/clean/cancel');
-        $backAction    = Action::custom('// TODO: Reset cleanPhase to idle');
+        // ── 按钮动作（生成实际 C# 代码调用 PHP API）──
+        $cleanAction = Action::custom(<<<'CS'
+cleanPhase = "running";
+cleanStatus = "Scanning system...";
+cleanReport = "";
+UpdateUI();
+await App.Stream.StartAsync("/api/clean/execute",
+    (evt, data) => Dispatcher.Invoke(() => {
+        if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
+        UpdateUI();
+    }),
+    () => Dispatcher.Invoke(() => { cleanPhase = "done"; cleanStatus = "Complete"; UpdateUI(); }),
+    (ex) => Dispatcher.Invoke(() => { cleanStatus = "Error: " + ex.Message; UpdateUI(); })
+);
+CS);
+
+        $previewAction = Action::custom(<<<'CS'
+cleanPhase = "running";
+cleanStatus = "Previewing...";
+cleanReport = "";
+UpdateUI();
+await App.Stream.StartAsync("/api/clean/preview",
+    (evt, data) => Dispatcher.Invoke(() => {
+        if (data.TryGetProperty("text", out var t)) cleanReport += t.GetString() + "\n";
+        UpdateUI();
+    }),
+    () => Dispatcher.Invoke(() => { cleanPhase = "idle"; cleanStatus = "Preview complete"; UpdateUI(); }),
+    (ex) => Dispatcher.Invoke(() => { cleanStatus = "Error: " + ex.Message; UpdateUI(); })
+);
+CS);
+
+        $cancelAction = Action::custom('await App.Api.PostAsync<object>("/api/clean/cancel");');
+        $backAction   = Action::custom('cleanPhase = "idle"; cleanReport = "Waiting to start...";');
 
         // ── 空闲态: ToolHero ──
         $hero = ToolHero::build($tool, [

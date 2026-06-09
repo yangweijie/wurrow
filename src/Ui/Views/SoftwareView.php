@@ -44,19 +44,19 @@ final class SoftwareView
                 ->padding(8)
                 ->width(180));
 
-        $sortBySize = (new Button('size', Action::custom('// TODO: Set sort to size')))
+        $sortBySize = (new Button('size', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();'))) // TODO: add sort param
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor($tool->accent())
                 ->backgroundColor('transparent'));
 
-        $sortByName = (new Button('name', Action::custom('// TODO: Set sort to name')))
+        $sortByName = (new Button('name', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();')))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)
                 ->backgroundColor('transparent'));
 
-        $sortBySource = (new Button('source', Action::custom('// TODO: Set sort to source')))
+        $sortBySource = (new Button('source', Action::custom('softwareLoading = true; softwareQuery = ""; UpdateUI();')))
             ->style(Style::make()
                 ->fontSize(11)
                 ->foregroundColor(Theme::TEXT_SECONDARY)
@@ -83,7 +83,15 @@ final class SoftwareView
         $selectionLabel = (new Text($bindings['selectedCount']))
             ->style(Theme::mono(Theme::TEXT_SECONDARY));
 
-        $uninstallAction = Action::custom('// TODO: Call POST /api/software/uninstall');
+        $uninstallAction = Action::custom(<<<'CS'
+if (selectedCount > 0) {
+    var result = await App.Api.PostAsync<object>("/api/software/uninstall",
+        new { ids = new[] { "selected" } });
+    selectedCount = 0;
+    softwareLoading = true;
+    UpdateUI();
+}
+CS);
         $uninstallBtn = PillButton::accent('Uninstall', $uninstallAction, $tool->accent());
 
         $bottomBar = new HStack(
