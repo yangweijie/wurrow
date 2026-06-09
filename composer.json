@@ -1,0 +1,32 @@
+{
+    "name": "yangweijie/wurrow",
+    "description": "Windows system cleanup and optimization tool, powered by perry-php",
+    "type": "project",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Yangweijie\\Wurrow\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "jay",
+            "email": "917647288@qq.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "yangweijie/perry-php": "*"
+    },
+    "require-dev": {
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php patch.php"
+        ],
+        "generate": "php src/Generate.php",
+        "serve": "php -S localhost:7891 src/Backend/Server.php"
+    }
+}
