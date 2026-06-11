@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Yangweijie\Wurrow\Ui;
 
 use Perry\UI\Styling\Style;
+use Perry\UI\Styling\StyleProperty;
 
 /**
  * Wurrow 视觉主题常量。
@@ -96,11 +97,12 @@ final class Theme
         return Style::make()
             ->backgroundColor('#FFFFFF')
             ->foregroundColor('#000000')
-            ->fontSize(13)
+            ->fontSize(16)
             ->fontWeight('semibold')
             ->fontFamily(self::FONT_SANS)
-            ->cornerRadius(20)
-            ->padding(10);
+            ->cornerRadius(24)
+            ->padding(20)
+            ->set(StyleProperty::Margin, '0,0,14,0');
     }
 
     /** 次按钮样式（透明底 + 描边） */
@@ -109,11 +111,11 @@ final class Theme
         return Style::make()
             ->backgroundColor(self::CARD_FILL)
             ->foregroundColor(self::TEXT_PRIMARY)
-            ->fontSize(13)
+            ->fontSize(16)
             ->fontWeight('semibold')
             ->fontFamily(self::FONT_SANS)
-            ->cornerRadius(20)
-            ->padding(10)
+            ->cornerRadius(24)
+            ->padding(20)
             ->border(1, self::HAIRLINE);
     }
 

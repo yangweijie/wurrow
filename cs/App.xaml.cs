@@ -23,8 +23,20 @@ namespace Wurrow
 
         public App()
         {
+            // 强制 WPF 使用软件渲染（解决远程桌面/虚拟机/部分显卡驱动下界面空白的问题）
+            AppContext.SetSwitch("Switch.System.Windows.Media.EnableHardwareAcceleration", false);
+
             apiClient = new ApiClient(serverPort);
             streamingClient = new StreamingClient(apiClient);
+
+            // 记录未处理的异常以便调试
+            DispatcherUnhandledException += (s, e) =>
+            {
+                Debug.WriteLine($"[Wurrow] UNHANDLED EXCEPTION: {e.Exception}");
+                MessageBox.Show($"Unhandled exception:\n{e.Exception.Message}\n\n{e.Exception.StackTrace}",
+                    "Wurrow Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                e.Handled = true;
+            };
         }
 
         /// <summary>
@@ -40,7 +52,17 @@ namespace Wurrow
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            try { File.AppendAllText("wurrow_trace.log", $"OnStartup at {DateTime.Now}\n"); } catch { }
+
             await StartPhpServerAsync();
+
+            try { File.AppendAllText("wurrow_trace.log", $"Creating window at {DateTime.Now}\n"); } catch { }
+
+            // 无论 PHP 服务器是否启动成功，都显示主窗口
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
+            try { File.AppendAllText("wurrow_trace.log", $"Window shown at {DateTime.Now}\n"); } catch { }
         }
 
         protected override void OnExit(ExitEventArgs e)
@@ -174,26 +196,42 @@ namespace Wurrow
         }
 
         /// <summary>
-        /// 查找项目根目录（包含 composer.json 的目录）。
+        /// 查找项目根目录（包含 composer.json 和 src/Backend/Server.php 的目录）。
         /// 从可执行文件位置向上遍历。
+        /// publish 部署时，PHP 源码在 php/ 子目录中。
         /// </summary>
         private static string? FindProjectRoot()
         {
             // 优先使用环境变量（开发时设置）
             var envRoot = Environment.GetEnvironmentVariable("WURROW_ROOT");
-            if (!string.IsNullOrEmpty(envRoot) && Directory.Exists(envRoot))
+            if (!string.IsNullOrEmpty(envRoot) && IsValidProjectRoot(envRoot))
                 return envRoot;
 
             // 从可执行文件位置向上查找
             var dir = AppDomain.CurrentDomain.BaseDirectory;
             while (dir != null)
             {
-                if (File.Exists(Path.Combine(dir, "composer.json")))
+                if (IsValidProjectRoot(dir))
                     return dir;
+
+                // publish 部署：PHP 源码在 php/ 子目录
+                var phpDir = Path.Combine(dir, "php");
+                if (IsValidProjectRoot(phpDir))
+                    return phpDir;
+
                 dir = Directory.GetParent(dir)?.FullName;
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 验证目录是否是有效的项目根目录（有 composer.json 且 Server.php 存在）。
+        /// </summary>
+        private static bool IsValidProjectRoot(string dir)
+        {
+            return File.Exists(Path.Combine(dir, "composer.json"))
+                && File.Exists(Path.Combine(dir, "src", "Backend", "Server.php"));
         }
     }
 }

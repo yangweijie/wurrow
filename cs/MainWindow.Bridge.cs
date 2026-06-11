@@ -15,7 +15,9 @@ namespace Wurrow
     public partial class MainWindow
     {
         private TreemapBridge? _treemapBridge;
+#pragma warning disable CS0414 // _softwareLoaded 在 Tab 切换中用于标记是否已加载
         private bool _softwareLoaded = false;
+#pragma warning restore CS0414
         private bool _settingsLoaded = false;
 
         /// <summary>
@@ -150,7 +152,7 @@ namespace Wurrow
                 var row = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Margin = new System.Windows.Thickness(0, 2)
+                    Margin = new System.Windows.Thickness(0, 2, 0, 0)
                 };
                 var nameTb = new System.Windows.Controls.TextBlock
                 {

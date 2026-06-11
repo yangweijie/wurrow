@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d9baa3640e8ab1fb8f8b3e8cd62a935f",
+    "content-hash": "b1046377df1e569ecae85d85bffd45dc",
     "packages": [
         {
             "name": "nikic/php-parser",
@@ -62,9 +62,10 @@
             "name": "yangweijie/perry-php",
             "version": "dev-main",
             "dist": {
-                "type": "path",
-                "url": "../perry/perry-php",
-                "reference": "445c1307562c6816af5ca356fb32341db459991f"
+                "type": "zip",
+                "url": "https://mirrors.cloud.tencent.com/repository/composer/yangweijie/perry-php/dev-main/yangweijie-perry-php-dev-main.zip",
+                "reference": "056d867a2d508ce137a0e094fd42a64a3e41a7cc",
+                "shasum": ""
             },
             "require": {
                 "ext-json": "*",
@@ -87,23 +88,15 @@
                     "src/IR/Node.php"
                 ]
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Perry\\Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ]
-            },
             "license": [
                 "MIT"
             ],
             "description": "Cross-platform UI abstraction and build system inspired by Perry-TS",
-            "transport-options": {
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/yangweijie/perry-php/issues",
+                "source": "https://github.com/yangweijie/perry-php/tree/main"
+            },
+            "time": "2026-06-09T23:46:52+00:00"
         }
     ],
     "packages-dev": [
@@ -1435,6 +1428,6 @@
     "platform": {
         "php": ">=8.2"
     },
-    "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "platform-dev": [],
+    "plugin-api-version": "2.3.0"
 }

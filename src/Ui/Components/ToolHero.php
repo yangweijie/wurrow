@@ -27,9 +27,10 @@ final class ToolHero
      *
      * @param Tool    $tool    当前工具（决定颜色和文案）
      * @param array   $buttons 按钮 Widget 数组
+     * @param array   $extra   额外的子元素（如状态文本、报告文本）
      * @return VStack
      */
-    public static function build(Tool $tool, array $buttons): VStack
+    public static function build(Tool $tool, array $buttons, array $extra = []): VStack
     {
         $accent = $tool->accent();
 
@@ -52,7 +53,7 @@ final class ToolHero
         // 标语
         $subtitle = (new Text($tool->tagline()))
             ->style(Style::make()
-                ->fontSize(15)
+                ->fontSize(16)
                 ->fontFamily('Segoe UI')
                 ->foregroundColor(Theme::TEXT_SECONDARY)
                 ->textAlignment('center'));
@@ -60,13 +61,18 @@ final class ToolHero
         // 按钮组
         $buttonRow = new HStack(...$buttons);
 
-        return new VStack(
+        $children = [
             new Spacer(),
             $orb,
             (new VStack($title, $subtitle))
-                ->style(Style::make()->padding(8)),
+                ->style(Style::make()->padding(12)),
             $buttonRow,
-            new Spacer(),
-        );
+        ];
+        foreach ($extra as $child) {
+            $children[] = $child;
+        }
+        $children[] = new Spacer();
+
+        return new VStack(...$children);
     }
 }

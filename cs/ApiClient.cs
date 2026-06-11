@@ -21,7 +21,7 @@ namespace Wurrow
             client.Timeout = TimeSpan.FromSeconds(30);
         }
 
-        public async Task<T?> GetAsync<T>(string endpoint) where T : class
+        public async Task<T?> GetAsync<T>(string endpoint)
         {
             try
             {
@@ -33,11 +33,11 @@ namespace Wurrow
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"API GET error: {ex.Message}");
-                return null;
+                return default(T);
             }
         }
 
-        public async Task<T?> PostAsync<T>(string endpoint, object? data = null) where T : class
+        public async Task<T?> PostAsync<T>(string endpoint, object? data = null)
         {
             try
             {
@@ -53,7 +53,7 @@ namespace Wurrow
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"API POST error: {ex.Message}");
-                return null;
+                return default(T);
             }
         }
 

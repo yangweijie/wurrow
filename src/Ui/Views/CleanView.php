@@ -79,31 +79,37 @@ await App.Stream.StartAsync("/api/clean/preview",
 CS);
 
         // ── 空闲态: ToolHero ──
+        $statusText = (new Text($bindings['cleanStatus']))
+            ->style(Style::make()
+                ->fontSize(11)
+                ->fontFamily('Cascadia Code')
+                ->foregroundColor(Theme::TEXT_SECONDARY)
+                ->set(\Perry\UI\Styling\StyleProperty::Margin, '0,16,0,4'));
+        $reportText = (new Text('Waiting to start...'))
+            ->style(Style::make()
+                ->fontSize(12)
+                ->fontFamily('Cascadia Code')
+                ->foregroundColor(Theme::TEXT_PRIMARY));
+
         $hero = ToolHero::build($tool, [
             PillButton::primary('Clean Now', $cleanAction),
             PillButton::secondary('Preview', $previewAction),
-        ]);
+        ], [$statusText, $reportText]);
+        $hero->name('panel_cleanHero');
+        $hero->visible($bindings['cleanHeroVisible']);
 
-        // ── 运行态: 状态栏 + 进度 ──
-        $statusBar = TaskReport::statusBar($bindings['cleanStatus'], $tool->accent());
+        // ── 运行态: 进度条 ──
         $progress  = (new Progress($bindings['cleanProgress']))
             ->style(Style::make()
                 ->height(3)
                 ->backgroundColor(Theme::HAIRLINE));
 
-        // ── 报告区域 ──
-        $reportBinding = new Binding('cleanReport', 'Waiting to start...');
-        $report = TaskReport::build($reportBinding, $tool->accent());
-
         // ── 完成横幅 ──
         $doneDetail = new Binding('cleanDoneDetail', '');
         $doneBanner = TaskReport::doneBanner('Cleaned', $doneDetail, $tool->accent());
 
-        // ── 命名容器 + visible() 绑定（消除对 patch-generated.php 的依赖）──
-        $heroSection = (new VStack($hero))
-            ->name('panel_cleanHero')
-            ->visible($bindings['cleanHeroVisible']);
-        $runningSection = (new VStack($statusBar, $progress))
+        // ── 命名容器 + visible() 绑定 ──
+        $runningSection = (new VStack($progress))
             ->name('panel_cleanRunning')
             ->visible($bindings['cleanRunningVisible']);
         $doneSection = (new VStack($doneBanner))
@@ -112,10 +118,10 @@ CS);
 
         // ── 组装 ──
         return new VStack(
-            $heroSection,
+            new Spacer(),
+            $hero,
             $runningSection,
             $doneSection,
-            $report,
         );
     }
 }

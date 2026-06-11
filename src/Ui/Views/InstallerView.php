@@ -78,31 +78,37 @@ await App.Stream.StartAsync("/api/installer/preview",
 CS);
 
         // ── 空闲态: ToolHero ──
+        $statusText = (new Text($bindings['installerStatus']))
+            ->style(Style::make()
+                ->fontSize(11)
+                ->fontFamily('Cascadia Code')
+                ->foregroundColor(Theme::TEXT_SECONDARY)
+                ->set(\Perry\UI\Styling\StyleProperty::Margin, '0,16,0,4'));
+        $reportText = (new Text('Waiting to start...'))
+            ->style(Style::make()
+                ->fontSize(12)
+                ->fontFamily(Theme::FONT_MONO)
+                ->foregroundColor(Theme::TEXT_PRIMARY));
+
         $hero = ToolHero::build($tool, [
             PillButton::primary('Clean Installers', $cleanAction),
             PillButton::secondary('Preview', $previewAction),
-        ]);
+        ], [$statusText, $reportText]);
+        $hero->name('panel_installerHero');
+        $hero->visible($bindings['installerHeroVisible']);
 
-        // ── 运行态 ──
-        $statusBar = TaskReport::statusBar($bindings['installerStatus'], $tool->accent());
+        // ── 运行态: 进度条 ──
         $progress  = (new Progress($bindings['installerProgress']))
             ->style(Style::make()
                 ->height(3)
                 ->backgroundColor(Theme::HAIRLINE));
-
-        // ── 报告区域 ──
-        $reportBinding = new Binding('installerReport', 'Waiting to start...');
-        $report = TaskReport::build($reportBinding, $tool->accent());
 
         // ── 完成横幅 ──
         $doneDetail = new Binding('installerDoneDetail', '');
         $doneBanner = TaskReport::doneBanner('Cleaned', $doneDetail, $tool->accent());
 
         // ── 命名容器 + visible() 绑定 ──
-        $heroSection = (new VStack($hero))
-            ->name('panel_installerHero')
-            ->visible($bindings['installerHeroVisible']);
-        $runningSection = (new VStack($statusBar, $progress))
+        $runningSection = (new VStack($progress))
             ->name('panel_installerRunning')
             ->visible($bindings['installerRunningVisible']);
         $doneSection = (new VStack($doneBanner))
@@ -110,10 +116,10 @@ CS);
             ->visible($bindings['installerDoneVisible']);
 
         return new VStack(
-            $heroSection,
+            new Spacer(),
+            $hero,
             $runningSection,
             $doneSection,
-            $report,
         );
     }
 }

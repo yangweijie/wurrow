@@ -76,31 +76,37 @@ await App.Stream.StartAsync("/api/optimize/preview",
 CS);
 
         // ── 空闲态: ToolHero ──
+        $statusText = (new Text($bindings['optimizeStatus']))
+            ->style(Style::make()
+                ->fontSize(11)
+                ->fontFamily('Cascadia Code')
+                ->foregroundColor(Theme::TEXT_SECONDARY)
+                ->set(\Perry\UI\Styling\StyleProperty::Margin, '0,16,0,4'));
+        $reportText = (new Text('Waiting to start...'))
+            ->style(Style::make()
+                ->fontSize(12)
+                ->fontFamily(Theme::FONT_MONO)
+                ->foregroundColor(Theme::TEXT_PRIMARY));
+
         $hero = ToolHero::build($tool, [
             PillButton::primary('Optimize Now', $optimizeAction),
             PillButton::secondary('Preview', $previewAction),
-        ]);
+        ], [$statusText, $reportText]);
+        $hero->name('panel_optimizeHero');
+        $hero->visible($bindings['optimizeHeroVisible']);
 
-        // ── 运行态 ──
-        $statusBar = TaskReport::statusBar($bindings['optimizeStatus'], $tool->accent());
+        // ── 运行态: 进度条 ──
         $progress  = (new Progress($bindings['optimizeProgress']))
             ->style(Style::make()
                 ->height(3)
                 ->backgroundColor(Theme::HAIRLINE));
-
-        // ── 报告区域 ──
-        $reportBinding = new Binding('optimizeReport', 'Waiting to start...');
-        $report = TaskReport::build($reportBinding, $tool->accent());
 
         // ── 完成横幅 ──
         $doneDetail = new Binding('optimizeDoneDetail', '');
         $doneBanner = TaskReport::doneBanner('Optimized', $doneDetail, $tool->accent());
 
         // ── 命名容器 + visible() 绑定 ──
-        $heroSection = (new VStack($hero))
-            ->name('panel_optimizeHero')
-            ->visible($bindings['optimizeHeroVisible']);
-        $runningSection = (new VStack($statusBar, $progress))
+        $runningSection = (new VStack($progress))
             ->name('panel_optimizeRunning')
             ->visible($bindings['optimizeRunningVisible']);
         $doneSection = (new VStack($doneBanner))
@@ -108,10 +114,10 @@ CS);
             ->visible($bindings['optimizeDoneVisible']);
 
         return new VStack(
-            $heroSection,
+            new Spacer(),
+            $hero,
             $runningSection,
             $doneSection,
-            $report,
         );
     }
 }
